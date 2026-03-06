@@ -1,5 +1,4 @@
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
-import { getStorage } from 'firebase-admin/storage';
 
 export const onPhotoUpload = onObjectFinalized(async (event) => {
   const filePath = event.data.name;
