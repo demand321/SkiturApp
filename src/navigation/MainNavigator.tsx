@@ -1,14 +1,14 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import HomeScreen from '../app/tabs/HomeScreen';
-import TripsScreen from '../app/tabs/TripsScreen';
+import TripsNavigator from './TripsNavigator';
 import MapScreen from '../app/tabs/MapScreen';
 import ProfileScreen from '../app/tabs/ProfileScreen';
 import { COLORS } from '../constants';
 
 export type MainTabParamList = {
   Home: undefined;
-  Trips: undefined;
+  TripsTab: undefined;
   Map: undefined;
   Profile: undefined;
 };
@@ -31,9 +31,9 @@ export default function MainNavigator() {
         options={{ title: 'Hjem' }}
       />
       <Tab.Screen
-        name="Trips"
-        component={TripsScreen}
-        options={{ title: 'Turer' }}
+        name="TripsTab"
+        component={TripsNavigator}
+        options={{ title: 'Turer', headerShown: false }}
       />
       <Tab.Screen
         name="Map"

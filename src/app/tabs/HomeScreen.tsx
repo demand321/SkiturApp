@@ -1,12 +1,64 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useAuthStore } from '../../stores/authStore';
+import { useTrips } from '../../hooks/useTrips';
+import TripCard from '../../components/trip/TripCard';
+import Button from '../../components/common/Button';
 import { COLORS } from '../../constants';
 
 export default function HomeScreen() {
+  const user = useAuthStore((s) => s.user);
+  const { active, planning } = useTrips();
+  const navigation = useNavigation<any>();
+
+  const upcoming = [...active, ...planning].slice(0, 5);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>SkiturApp</Text>
-      <Text style={styles.subtitle}>Velkommen!</Text>
+      <FlatList
+        data={upcoming}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.greeting}>
+              Hei, {user?.displayName || user?.email?.split('@')[0] || 'turvenn'}!
+            </Text>
+            {active.length > 0 ? (
+              <Text style={styles.subtitle}>
+                Du har {active.length} aktiv{active.length !== 1 ? 'e' : ''} tur{active.length !== 1 ? 'er' : ''}
+              </Text>
+            ) : (
+              <Text style={styles.subtitle}>Ingen aktive turer akkurat nå</Text>
+            )}
+          </View>
+        }
+        renderItem={({ item }) => (
+          <TripCard
+            trip={item}
+            onPress={() =>
+              navigation.navigate('TripsTab', {
+                screen: 'TripDetail',
+                params: { tripId: item.id },
+              })
+            }
+          />
+        )}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>Ingen kommende turer</Text>
+            <View style={styles.createButton}>
+              <Button
+                title="Opprett ny tur"
+                onPress={() =>
+                  navigation.navigate('TripsTab', { screen: 'CreateTrip' })
+                }
+              />
+            </View>
+          </View>
+        }
+      />
     </View>
   );
 }
@@ -15,17 +67,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  title: {
-    fontSize: 28,
+  list: {
+    padding: 16,
+  },
+  header: {
+    marginBottom: 20,
+  },
+  greeting: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.text,
   },
   subtitle: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  empty: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  emptyText: {
     fontSize: 16,
     color: COLORS.textSecondary,
-    marginTop: 8,
+    marginBottom: 16,
+  },
+  createButton: {
+    width: '100%',
   },
 });
