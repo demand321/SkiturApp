@@ -1,56 +1,37 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import MapView, { Marker, Polyline, MapPressEvent } from 'react-native-maps';
+import MapView, { Marker, MapPressEvent } from 'react-native-maps';
 import { COLORS } from '../../constants';
 
 interface Props {
+  title?: string;
   initialLocation?: { latitude: number; longitude: number };
-  initialEndLocation?: { latitude: number; longitude: number };
-  onLocationSelected: (
-    start: { latitude: number; longitude: number },
-    end?: { latitude: number; longitude: number }
-  ) => void;
+  onLocationSelected: (location: { latitude: number; longitude: number }) => void;
   onCancel: () => void;
-  mode?: 'single' | 'startend';
+  markerColor?: string;
 }
 
 export default function LocationPicker({
+  title = 'Velg posisjon',
   initialLocation,
-  initialEndLocation,
   onLocationSelected,
   onCancel,
-  mode = 'startend',
+  markerColor = COLORS.primary,
 }: Props) {
-  const [startPoint, setStartPoint] = useState<{
+  const [selected, setSelected] = useState<{
     latitude: number;
     longitude: number;
   } | null>(initialLocation ?? null);
-  const [endPoint, setEndPoint] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(initialEndLocation ?? null);
-  const [pickingEnd, setPickingEnd] = useState(false);
 
-  const handleMapPress = useCallback(
-    (e: MapPressEvent) => {
-      const coord = e.nativeEvent.coordinate;
-      if (mode === 'single' || !pickingEnd) {
-        setStartPoint(coord);
-        if (mode === 'startend' && !pickingEnd) {
-          // After picking start, switch to end
-        }
-      } else {
-        setEndPoint(coord);
-      }
-    },
-    [pickingEnd, mode]
-  );
+  const handleMapPress = useCallback((e: MapPressEvent) => {
+    setSelected(e.nativeEvent.coordinate);
+  }, []);
 
   const handleConfirm = useCallback(() => {
-    if (startPoint) {
-      onLocationSelected(startPoint, endPoint ?? undefined);
+    if (selected) {
+      onLocationSelected(selected);
     }
-  }, [startPoint, endPoint, onLocationSelected]);
+  }, [selected, onLocationSelected]);
 
   const defaultRegion = initialLocation
     ? {
@@ -66,44 +47,11 @@ export default function LocationPicker({
         longitudeDelta: 5,
       };
 
-  const isSingleMode = mode === 'single';
-  const canConfirm = isSingleMode ? !!startPoint : !!startPoint;
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>
-          {isSingleMode
-            ? 'Velg posisjon'
-            : pickingEnd
-            ? 'Velg sluttpunkt'
-            : 'Velg startpunkt'}
-        </Text>
+        <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>Trykk på kartet for å velge posisjon</Text>
-        {!isSingleMode && (
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={[styles.toggleBtn, !pickingEnd && styles.toggleActive]}
-              onPress={() => setPickingEnd(false)}
-            >
-              <Text
-                style={[styles.toggleText, !pickingEnd && styles.toggleTextActive]}
-              >
-                Startpunkt
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggleBtn, pickingEnd && styles.toggleActive]}
-              onPress={() => setPickingEnd(true)}
-            >
-              <Text
-                style={[styles.toggleText, pickingEnd && styles.toggleTextActive]}
-              >
-                Sluttpunkt
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
       <MapView
         style={styles.map}
@@ -113,48 +61,28 @@ export default function LocationPicker({
         showsUserLocation
         showsMyLocationButton
       >
-        {startPoint && (
+        {selected && (
           <Marker
-            coordinate={startPoint}
-            pinColor="#2A9D8F"
-            title="Startpunkt"
-          />
-        )}
-        {endPoint && (
-          <Marker
-            coordinate={endPoint}
-            pinColor="#E63946"
-            title="Sluttpunkt"
-          />
-        )}
-        {startPoint && endPoint && (
-          <Polyline
-            coordinates={[startPoint, endPoint]}
-            strokeWidth={2}
-            strokeColor={COLORS.primary}
+            coordinate={selected}
+            pinColor={markerColor}
           />
         )}
       </MapView>
-      <View style={styles.info}>
-        {startPoint && (
-          <Text style={styles.infoText}>
-            Start: {startPoint.latitude.toFixed(4)}, {startPoint.longitude.toFixed(4)}
+      {selected && (
+        <View style={styles.coordInfo}>
+          <Text style={styles.coordText}>
+            {selected.latitude.toFixed(4)}, {selected.longitude.toFixed(4)}
           </Text>
-        )}
-        {endPoint && (
-          <Text style={styles.infoText}>
-            Slutt: {endPoint.latitude.toFixed(4)}, {endPoint.longitude.toFixed(4)}
-          </Text>
-        )}
-      </View>
+        </View>
+      )}
       <View style={styles.buttons}>
         <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
           <Text style={styles.cancelText}>Avbryt</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.confirmBtn, !canConfirm && styles.disabled]}
+          style={[styles.confirmBtn, !selected && styles.disabled]}
           onPress={handleConfirm}
-          disabled={!canConfirm}
+          disabled={!selected}
         >
           <Text style={styles.confirmText}>Bekreft</Text>
         </TouchableOpacity>
@@ -184,45 +112,20 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 4,
   },
-  toggleRow: {
-    flexDirection: 'row',
-    marginTop: 10,
-    gap: 8,
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.background,
-  },
-  toggleActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  toggleTextActive: {
-    color: '#fff',
-  },
   map: {
     flex: 1,
   },
-  info: {
+  coordInfo: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: COLORS.surface,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
-  infoText: {
+  coordText: {
     fontSize: 13,
     color: COLORS.textSecondary,
+    textAlign: 'center',
   },
   buttons: {
     flexDirection: 'row',

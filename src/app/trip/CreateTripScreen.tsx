@@ -37,7 +37,8 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   const [date, setDate] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -114,30 +115,47 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
           multiline
           numberOfLines={3}
         />
+
+        <Text style={styles.sectionLabel}>Startpunkt</Text>
         <Input
-          label="Startsted"
+          label="Stedsnavn"
           placeholder="F.eks. Besseggen parkering"
           value={locationName}
           onChangeText={setLocationName}
         />
+        <TouchableOpacity
+          style={styles.locationPickerBtn}
+          onPress={() => setShowStartPicker(true)}
+        >
+          <View style={styles.pickerContent}>
+            <View style={[styles.dot, { backgroundColor: '#2A9D8F' }]} />
+            <Text style={styles.locationPickerText}>
+              {startCoords
+                ? `${startCoords.latitude.toFixed(4)}, ${startCoords.longitude.toFixed(4)}`
+                : 'Velg startpunkt på kart'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <Text style={styles.sectionLabel}>Sluttpunkt (valgfritt)</Text>
         <Input
-          label="Sluttpunkt (valgfritt)"
+          label="Stedsnavn"
           placeholder="F.eks. Memurubu"
           value={endLocationName}
           onChangeText={setEndLocationName}
         />
-
         <TouchableOpacity
           style={styles.locationPickerBtn}
-          onPress={() => setShowLocationPicker(true)}
+          onPress={() => setShowEndPicker(true)}
         >
-          <Text style={styles.locationPickerText}>
-            {startCoords
-              ? endCoords
-                ? `Start: ${startCoords.latitude.toFixed(4)}, ${startCoords.longitude.toFixed(4)} → Slutt: ${endCoords.latitude.toFixed(4)}, ${endCoords.longitude.toFixed(4)}`
-                : `Startpunkt valgt (${startCoords.latitude.toFixed(4)}, ${startCoords.longitude.toFixed(4)}) — trykk for å legge til sluttpunkt`
-              : 'Velg start- og sluttpunkt på kart'}
-          </Text>
+          <View style={styles.pickerContent}>
+            <View style={[styles.dot, { backgroundColor: '#E63946' }]} />
+            <Text style={styles.locationPickerText}>
+              {endCoords
+                ? `${endCoords.latitude.toFixed(4)}, ${endCoords.longitude.toFixed(4)}`
+                : 'Velg sluttpunkt på kart'}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <Input
@@ -154,17 +172,29 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
         </View>
       </ScrollView>
 
-      <Modal visible={showLocationPicker} animationType="slide">
+      <Modal visible={showStartPicker} animationType="slide">
         <LocationPicker
+          title="Velg startpunkt"
           initialLocation={startCoords ?? undefined}
-          initialEndLocation={endCoords ?? undefined}
-          mode="startend"
-          onLocationSelected={(start, end) => {
-            setStartCoords(start);
-            setEndCoords(end ?? null);
-            setShowLocationPicker(false);
+          markerColor="#2A9D8F"
+          onLocationSelected={(loc) => {
+            setStartCoords(loc);
+            setShowStartPicker(false);
           }}
-          onCancel={() => setShowLocationPicker(false)}
+          onCancel={() => setShowStartPicker(false)}
+        />
+      </Modal>
+
+      <Modal visible={showEndPicker} animationType="slide">
+        <LocationPicker
+          title="Velg sluttpunkt"
+          initialLocation={endCoords ?? startCoords ?? undefined}
+          markerColor="#E63946"
+          onLocationSelected={(loc) => {
+            setEndCoords(loc);
+            setShowEndPicker(false);
+          }}
+          onCancel={() => setShowEndPicker(false)}
         />
       </Modal>
     </KeyboardAvoidingView>
@@ -185,6 +215,13 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 24,
   },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 8,
+    marginTop: 8,
+  },
   locationPickerBtn: {
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -193,6 +230,16 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
     marginBottom: 16,
+  },
+  pickerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 10,
   },
   locationPickerText: {
     fontSize: 15,
