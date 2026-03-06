@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Alert, Modal } from 'react-native';
+import { View, StyleSheet, Alert, Modal, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../stores/authStore';
 import { useLocationStore } from '../../stores/locationStore';
@@ -58,18 +58,23 @@ export default function TripPhotosScreen({ tripId }: Props) {
 
     const location = await getLocation();
 
-    Alert.prompt?.(
-      'Bildetekst',
-      'Legg til en beskrivelse (valgfritt)',
-      [
-        { text: 'Hopp over', onPress: () => doUpload(result.assets[0].uri, '', location) },
-        {
-          text: 'Lagre',
-          onPress: (caption?: string) => doUpload(result.assets[0].uri, caption ?? '', location),
-        },
-      ],
-      'plain-text'
-    ) ?? doUpload(result.assets[0].uri, '', location);
+    if (Platform.OS === 'web') {
+      const caption = window.prompt('Legg til en beskrivelse (valgfritt)') ?? '';
+      doUpload(result.assets[0].uri, caption, location);
+    } else {
+      Alert.prompt?.(
+        'Bildetekst',
+        'Legg til en beskrivelse (valgfritt)',
+        [
+          { text: 'Hopp over', onPress: () => doUpload(result.assets[0].uri, '', location) },
+          {
+            text: 'Lagre',
+            onPress: (caption?: string) => doUpload(result.assets[0].uri, caption ?? '', location),
+          },
+        ],
+        'plain-text'
+      ) ?? doUpload(result.assets[0].uri, '', location);
+    }
   }, [user, getLocation, tripId]);
 
   const handlePickPhoto = useCallback(async () => {

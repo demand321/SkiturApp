@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
   Share,
+  Platform,
 } from 'react-native';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -51,34 +52,53 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
   const date = trip.startDate?.toDate?.() ?? new Date();
 
   const handleStartTrip = async () => {
-    Alert.alert('Start tur', 'Vil du starte turen nå?', [
-      { text: 'Avbryt', style: 'cancel' },
-      {
-        text: 'Start',
-        onPress: async () => {
-          await updateTrip(tripId, { status: 'active' });
+    if (Platform.OS === 'web') {
+      if (window.confirm('Vil du starte turen nå?')) {
+        await updateTrip(tripId, { status: 'active' });
+      }
+    } else {
+      Alert.alert('Start tur', 'Vil du starte turen nå?', [
+        { text: 'Avbryt', style: 'cancel' },
+        {
+          text: 'Start',
+          onPress: async () => {
+            await updateTrip(tripId, { status: 'active' });
+          },
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   const handleCompleteTrip = async () => {
-    Alert.alert('Avslutt tur', 'Vil du avslutte turen?', [
-      { text: 'Avbryt', style: 'cancel' },
-      {
-        text: 'Avslutt',
-        onPress: async () => {
-          await updateTrip(tripId, { status: 'completed' });
+    if (Platform.OS === 'web') {
+      if (window.confirm('Vil du avslutte turen?')) {
+        await updateTrip(tripId, { status: 'completed' });
+      }
+    } else {
+      Alert.alert('Avslutt tur', 'Vil du avslutte turen?', [
+        { text: 'Avbryt', style: 'cancel' },
+        {
+          text: 'Avslutt',
+          onPress: async () => {
+            await updateTrip(tripId, { status: 'completed' });
+          },
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   const handleShareInvite = async () => {
+    const inviteUrl = `https://skiturapp.pages.dev`;
+    const message = `Bli med på skitur: ${trip.title}!\nÅpne appen her: ${inviteUrl}`;
     try {
-      await Share.share({
-        message: `Bli med på skitur: ${trip.title}!\nLast ned SkiturApp og bli med.`,
-      });
+      if (Platform.OS === 'web' && navigator.share) {
+        await navigator.share({ title: trip.title, text: message, url: inviteUrl });
+      } else if (Platform.OS === 'web') {
+        await navigator.clipboard.writeText(message);
+        window.alert('Invitasjonslenke kopiert!');
+      } else {
+        await Share.share({ message });
+      }
     } catch {
       // User cancelled share
     }
