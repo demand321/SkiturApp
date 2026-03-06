@@ -11,7 +11,7 @@ SkiturApp is a React Native (Expo SDK 55) mobile app for organizing ski touring 
 - **State:** Zustand stores (auth, trip, location, sync, theme)
 - **Navigation:** React Navigation (bottom tabs + stack navigators)
 - **Backend:** Firebase (Auth, Firestore, Storage)
-- **Maps:** react-native-maps (terrain view)
+- **Maps:** react-native-maps (terrain view, native) + web stub (maps unavailable on web)
 - **Offline:** SQLite for GPS tracks, Firestore persistence, photo upload queue
 - **Weather:** MET Norway API (api.met.no)
 - **i18n:** Custom Zustand-based with Norwegian (bokmål) as primary, English secondary
@@ -44,6 +44,8 @@ src/
 
 ```bash
 npx expo start              # Start dev server
+npx expo start --web        # Start web version (maps show placeholder)
+npx expo start --tunnel     # Start with tunnel (test on phone from VM/remote)
 npx expo run:android        # Build and run on Android device
 npx expo run:ios            # Build and run on iOS (Mac + Xcode required)
 npm test                    # Run unit tests (Jest + ts-jest)
@@ -67,6 +69,7 @@ npm run format              # Prettier
 - Background GPS tracking uses expo-location + expo-task-manager. Track points are buffered in SQLite and batch-synced to Firestore every 30 seconds.
 - Photos are queued locally via `photoQueue.ts` for offline resilience.
 - Weather API requires proper User-Agent header per MET Norway terms.
+- **Web support:** `metro.config.js` aliases `react-native-maps` to `react-native-maps.web.js` (a stub) on web. Map screens show a placeholder. Other features work normally.
 
 ## Phase Status
 
