@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TripsScreen from '../app/tabs/TripsScreen';
 import CreateTripScreen from '../app/trip/CreateTripScreen';
 import TripDetailScreen from '../app/trip/TripDetailScreen';
+import EditTripScreen from '../app/trip/EditTripScreen';
 import TripChatScreen from '../app/trip/TripChatScreen';
 import TripPhotosScreen from '../app/trip/TripPhotosScreen';
 import ShoppingListScreen from '../app/trip/ShoppingListScreen';
@@ -13,6 +14,7 @@ export type TripsStackParamList = {
   TripsList: undefined;
   CreateTrip: undefined;
   TripDetail: { tripId: string };
+  EditTrip: { tripId: string };
   TripChat: { tripId: string };
   TripPhotos: { tripId: string };
   ShoppingList: { tripId: string };
@@ -57,6 +59,16 @@ export default function TripsNavigator() {
             onPhotos={(tripId) => navigation.navigate('TripPhotos', { tripId })}
             onShopping={(tripId) => navigation.navigate('ShoppingList', { tripId })}
             onArchive={(tripId) => navigation.navigate('TripArchive', { tripId })}
+            onEdit={(tripId) => navigation.navigate('EditTrip', { tripId })}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="EditTrip" options={{ title: 'Rediger tur' }}>
+        {({ navigation, route }) => (
+          <EditTripScreen
+            tripId={(route.params as { tripId: string }).tripId}
+            onSaved={() => navigation.goBack()}
+            onCancel={() => navigation.goBack()}
           />
         )}
       </Stack.Screen>

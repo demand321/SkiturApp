@@ -35,7 +35,7 @@ export default function TripCard({ trip, onPress }: Props) {
         </View>
       </View>
       <Text style={styles.location} numberOfLines={1}>
-        {trip.location.name}
+        {trip.location.name}{trip.endLocation?.name ? ` → ${trip.endLocation.name}` : ''}
       </Text>
       <View style={styles.footer}>
         <Text style={styles.date}>{formatDate(date)}</Text>

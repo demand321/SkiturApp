@@ -22,7 +22,7 @@ export default function TripsScreen({ onCreateTrip, onSelectTrip }: Props) {
   const sections: Array<{ title: string; data: Trip[] }> = [];
   if (active.length > 0) sections.push({ title: 'Aktive turer', data: active });
   if (planning.length > 0) sections.push({ title: 'Planlagte turer', data: planning });
-  if (completed.length > 0) sections.push({ title: 'Fullførte turer', data: completed });
+  if (completed.length > 0) sections.push({ title: 'Turhistorikk', data: completed });
 
   const allItems = sections.flatMap((section) => [
     { type: 'header' as const, title: section.title, key: `h-${section.title}` },

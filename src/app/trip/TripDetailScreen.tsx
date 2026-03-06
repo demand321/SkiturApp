@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { updateTrip } from '../../services/trips';
+import { updateTrip, deleteTrip } from '../../services/trips';
 import { useAuthStore } from '../../stores/authStore';
 import { Trip } from '../../types';
 import { formatDate } from '../../utils/dateUtils';
@@ -25,9 +25,10 @@ interface Props {
   onPhotos: (tripId: string) => void;
   onShopping: (tripId: string) => void;
   onArchive: (tripId: string) => void;
+  onEdit: (tripId: string) => void;
 }
 
-export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onShopping, onArchive }: Props) {
+export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onShopping, onArchive, onEdit }: Props) {
   const user = useAuthStore((s) => s.user);
   const [trip, setTrip] = useState<Trip | null>(null);
 
@@ -83,6 +84,23 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
             await updateTrip(tripId, { status: 'completed' });
           },
         },
+      ]);
+    }
+  };
+
+  const handleDeleteTrip = async () => {
+    const doDelete = async () => {
+      await deleteTrip(tripId);
+      onBack();
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Er du sikker på at du vil slette denne turen? Dette kan ikke angres.')) {
+        await doDelete();
+      }
+    } else {
+      Alert.alert('Slett tur', 'Er du sikker på at du vil slette denne turen? Dette kan ikke angres.', [
+        { text: 'Avbryt', style: 'cancel' },
+        { text: 'Slett', style: 'destructive', onPress: doDelete },
       ]);
     }
   };
@@ -164,6 +182,15 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
           <>
             <View style={styles.spacer} />
             <Button title="Avslutt tur" onPress={handleCompleteTrip} variant="danger" />
+          </>
+        )}
+
+        {isCreator && (
+          <>
+            <View style={styles.spacer} />
+            <Button title="Rediger tur" onPress={() => onEdit(tripId)} variant="secondary" />
+            <View style={styles.spacer} />
+            <Button title="Slett tur" onPress={handleDeleteTrip} variant="danger" />
           </>
         )}
 
