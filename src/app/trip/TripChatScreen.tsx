@@ -1,14 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   TextInput,
   FlatList,
+  Image,
   StyleSheet,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../../services/firebase';
 import { useAuthStore } from '../../stores/authStore';
 import { subscribeToMessages, sendMessage } from '../../services/chat';
 import { Message } from '../../types';
@@ -37,15 +42,49 @@ export default function TripChatScreen({ tripId }: Props) {
     await sendMessage(tripId, user.uid, msg);
   };
 
+  const handleSendPhoto = useCallback(async () => {
+    if (!user) return;
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Tillatelse', 'Vi trenger tilgang til bildebiblioteket.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    try {
+      const response = await fetch(result.assets[0].uri);
+      const blob = await response.blob();
+      const filename = `trips/${tripId}/chat/${Date.now()}.jpg`;
+      const storageRef = ref(storage, filename);
+      await uploadBytes(storageRef, blob);
+      const imageURL = await getDownloadURL(storageRef);
+      await sendMessage(tripId, user.uid, '', imageURL);
+    } catch (error: any) {
+      Alert.alert('Feil', 'Kunne ikke sende bildet.');
+    }
+  }, [user, tripId]);
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.userId === user?.uid;
     const time = item.createdAt?.toDate?.() ?? new Date();
 
     return (
       <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
-        <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
-          {item.text}
-        </Text>
+        {item.imageURL ? (
+          <Image source={{ uri: item.imageURL }} style={styles.chatImage} />
+        ) : null}
+        {item.text ? (
+          <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+            {item.text}
+          </Text>
+        ) : null}
         <Text style={[styles.time, isMe && styles.timeMe]}>
           {formatTime(time)}
         </Text>
@@ -68,6 +107,9 @@ export default function TripChatScreen({ tripId }: Props) {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
       />
       <View style={styles.inputRow}>
+        <TouchableOpacity style={styles.photoButton} onPress={handleSendPhoto}>
+          <Text style={styles.photoButtonText}>+</Text>
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
           placeholder="Skriv en melding..."
@@ -138,6 +180,27 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
+  },
+  chatImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  photoButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  photoButtonText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 24,
   },
   input: {
     flex: 1,

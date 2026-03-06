@@ -4,6 +4,9 @@ import TripsScreen from '../app/tabs/TripsScreen';
 import CreateTripScreen from '../app/trip/CreateTripScreen';
 import TripDetailScreen from '../app/trip/TripDetailScreen';
 import TripChatScreen from '../app/trip/TripChatScreen';
+import TripPhotosScreen from '../app/trip/TripPhotosScreen';
+import ShoppingListScreen from '../app/trip/ShoppingListScreen';
+import TripArchiveScreen from '../app/trip/TripArchiveScreen';
 import { COLORS } from '../constants';
 
 export type TripsStackParamList = {
@@ -11,6 +14,9 @@ export type TripsStackParamList = {
   CreateTrip: undefined;
   TripDetail: { tripId: string };
   TripChat: { tripId: string };
+  TripPhotos: { tripId: string };
+  ShoppingList: { tripId: string };
+  TripArchive: { tripId: string };
 };
 
 const Stack = createNativeStackNavigator<TripsStackParamList>();
@@ -48,12 +54,36 @@ export default function TripsNavigator() {
             tripId={(route.params as { tripId: string }).tripId}
             onBack={() => navigation.goBack()}
             onChat={(tripId) => navigation.navigate('TripChat', { tripId })}
+            onPhotos={(tripId) => navigation.navigate('TripPhotos', { tripId })}
+            onShopping={(tripId) => navigation.navigate('ShoppingList', { tripId })}
+            onArchive={(tripId) => navigation.navigate('TripArchive', { tripId })}
           />
         )}
       </Stack.Screen>
       <Stack.Screen name="TripChat" options={{ title: 'Chat' }}>
         {({ route }) => (
           <TripChatScreen
+            tripId={(route.params as { tripId: string }).tripId}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="TripPhotos" options={{ title: 'Bilder' }}>
+        {({ route }) => (
+          <TripPhotosScreen
+            tripId={(route.params as { tripId: string }).tripId}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="ShoppingList" options={{ title: 'Handleliste' }}>
+        {({ route }) => (
+          <ShoppingListScreen
+            tripId={(route.params as { tripId: string }).tripId}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="TripArchive" options={{ title: 'Turarkiv' }}>
+        {({ route }) => (
+          <TripArchiveScreen
             tripId={(route.params as { tripId: string }).tripId}
           />
         )}

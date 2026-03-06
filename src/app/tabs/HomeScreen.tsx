@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { useTrips } from '../../hooks/useTrips';
 import TripCard from '../../components/trip/TripCard';
+import WeatherWidget from '../../components/weather/WeatherWidget';
 import Button from '../../components/common/Button';
 import { COLORS } from '../../constants';
 
@@ -26,9 +27,20 @@ export default function HomeScreen() {
               Hei, {user?.displayName || user?.email?.split('@')[0] || 'turvenn'}!
             </Text>
             {active.length > 0 ? (
-              <Text style={styles.subtitle}>
-                Du har {active.length} aktiv{active.length !== 1 ? 'e' : ''} tur{active.length !== 1 ? 'er' : ''}
-              </Text>
+              <>
+                <Text style={styles.subtitle}>
+                  Du har {active.length} aktiv{active.length !== 1 ? 'e' : ''} tur{active.length !== 1 ? 'er' : ''}
+                </Text>
+                {active[0].location.latitude !== 0 && (
+                  <View style={styles.weatherRow}>
+                    <WeatherWidget
+                      latitude={active[0].location.latitude}
+                      longitude={active[0].location.longitude}
+                      compact
+                    />
+                  </View>
+                )}
+              </>
             ) : (
               <Text style={styles.subtitle}>Ingen aktive turer akkurat nå</Text>
             )}
@@ -83,6 +95,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.textSecondary,
     marginTop: 4,
+  },
+  weatherRow: {
+    marginTop: 8,
   },
   empty: {
     alignItems: 'center',

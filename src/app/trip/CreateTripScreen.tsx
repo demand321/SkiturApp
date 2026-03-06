@@ -7,12 +7,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { Timestamp } from 'firebase/firestore';
 import { useAuthStore } from '../../stores/authStore';
 import { createTrip } from '../../services/trips';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
+import LocationPicker from '../../components/map/LocationPicker';
 import { COLORS } from '../../constants';
 
 interface Props {
@@ -25,6 +28,11 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [locationName, setLocationName] = useState('');
+  const [locationCoords, setLocationCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [date, setDate] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -46,8 +54,8 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
         startDate: Timestamp.fromDate(parsedDate),
         endDate: null,
         location: {
-          latitude: 0,
-          longitude: 0,
+          latitude: locationCoords?.latitude ?? 0,
+          longitude: locationCoords?.longitude ?? 0,
           name: locationName.trim(),
         },
         participants: [user.uid],
@@ -89,6 +97,18 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
           value={locationName}
           onChangeText={setLocationName}
         />
+
+        <TouchableOpacity
+          style={styles.locationPickerBtn}
+          onPress={() => setShowLocationPicker(true)}
+        >
+          <Text style={styles.locationPickerText}>
+            {locationCoords
+              ? `Posisjon valgt (${locationCoords.latitude.toFixed(4)}, ${locationCoords.longitude.toFixed(4)})`
+              : 'Velg posisjon på kart'}
+          </Text>
+        </TouchableOpacity>
+
         <Input
           label="Dato (YYYY-MM-DD)"
           placeholder="2026-04-01"
@@ -102,6 +122,17 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
           <Button title="Avbryt" onPress={onCancel} variant="secondary" />
         </View>
       </ScrollView>
+
+      <Modal visible={showLocationPicker} animationType="slide">
+        <LocationPicker
+          initialLocation={locationCoords ?? undefined}
+          onLocationSelected={(loc) => {
+            setLocationCoords(loc);
+            setShowLocationPicker(false);
+          }}
+          onCancel={() => setShowLocationPicker(false)}
+        />
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -119,6 +150,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: 24,
+  },
+  locationPickerBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    marginBottom: 16,
+  },
+  locationPickerText: {
+    fontSize: 15,
+    color: COLORS.primary,
   },
   buttons: {
     marginTop: 8,

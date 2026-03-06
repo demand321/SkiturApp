@@ -14,15 +14,19 @@ import { useAuthStore } from '../../stores/authStore';
 import { Trip } from '../../types';
 import { formatDate } from '../../utils/dateUtils';
 import Button from '../../components/common/Button';
+import WeatherWidget from '../../components/weather/WeatherWidget';
 import { COLORS } from '../../constants';
 
 interface Props {
   tripId: string;
   onBack: () => void;
   onChat: (tripId: string) => void;
+  onPhotos: (tripId: string) => void;
+  onShopping: (tripId: string) => void;
+  onArchive: (tripId: string) => void;
 }
 
-export default function TripDetailScreen({ tripId, onBack, onChat }: Props) {
+export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onShopping, onArchive }: Props) {
   const user = useAuthStore((s) => s.user);
   const [trip, setTrip] = useState<Trip | null>(null);
 
@@ -102,9 +106,28 @@ export default function TripDetailScreen({ tripId, onBack, onChat }: Props) {
         />
       </View>
 
+      {(trip.status === 'planning' || trip.status === 'active') && (
+        <View style={styles.weatherSection}>
+          <WeatherWidget
+            latitude={trip.location.latitude}
+            longitude={trip.location.longitude}
+          />
+        </View>
+      )}
+
       <View style={styles.actions}>
         <Button title="Chat" onPress={() => onChat(tripId)} />
         <View style={styles.spacer} />
+        <Button title="Bilder" onPress={() => onPhotos(tripId)} />
+        <View style={styles.spacer} />
+        <Button title="Handleliste" onPress={() => onShopping(tripId)} />
+        <View style={styles.spacer} />
+        {trip.status === 'completed' && (
+          <>
+            <Button title="Se turarkiv" onPress={() => onArchive(tripId)} />
+            <View style={styles.spacer} />
+          </>
+        )}
         <Button title="Inviter deltaker" onPress={handleShareInvite} variant="secondary" />
 
         {isCreator && trip.status === 'planning' && (
@@ -218,6 +241,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: COLORS.text,
+  },
+  weatherSection: {
+    marginBottom: 20,
   },
   actions: {
     marginTop: 4,

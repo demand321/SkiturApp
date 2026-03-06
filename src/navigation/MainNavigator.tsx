@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../app/tabs/HomeScreen';
 import TripsNavigator from './TripsNavigator';
 import MapScreen from '../app/tabs/MapScreen';
@@ -28,22 +29,43 @@ export default function MainNavigator() {
       <Tab.Screen
         name="Home"
         component={HomeScreen}
-        options={{ title: 'Hjem' }}
+        options={{
+          title: 'Hjem',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name="TripsTab"
         component={TripsNavigator}
-        options={{ title: 'Turer', headerShown: false }}
+        options={{
+          title: 'Turer',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="compass-outline" size={size} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name="Map"
         component={MapScreen}
-        options={{ title: 'Kart' }}
+        options={{
+          title: 'Kart',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map-outline" size={size} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ title: 'Profil' }}
+        options={{
+          title: 'Profil',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
       />
     </Tab.Navigator>
   );
