@@ -90,18 +90,16 @@ function TripArchiveContent({ trip }: { trip: Trip }) {
       <Text style={styles.date}>{formatDate(startDate)}</Text>
       <Text style={styles.location}>{trip.location.name}</Text>
 
-      {routePoints.length > 0 && (
-        <View style={styles.mapContainer}>
-          <TripMap
-            routePoints={routePoints}
-            participantPositions={new Map()}
-            photos={photos}
-            onPhotoPress={setSelectedPhoto}
-            initialRegion={initialRegion}
-            showsUserLocation={false}
-          />
-        </View>
-      )}
+      <View style={styles.mapContainer}>
+        <TripMap
+          routePoints={routePoints}
+          participantPositions={new Map()}
+          photos={photos}
+          onPhotoPress={setSelectedPhoto}
+          initialRegion={initialRegion}
+          showsUserLocation={false}
+        />
+      </View>
 
       <View style={styles.statsGrid}>
         <StatCard label="Distanse" value={`${(distance / 1000).toFixed(1)} km`} />
