@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useImperativeHandle, useCallback, useState } from 'react';
 import { View } from 'react-native';
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyCamTQqgJrbJy7wvbJ-yG4V2uu5XN28oQ8';
 
 let googleMapsPromise = null;
 
