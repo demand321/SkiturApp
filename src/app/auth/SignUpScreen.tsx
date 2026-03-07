@@ -18,18 +18,21 @@ interface Props {
 
 export default function SignUpScreen({ onNavigateToSignIn }: Props) {
   const [displayName, setDisplayName] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
-    if (!displayName || !email || !password) {
-      Alert.alert('Feil', 'Fyll inn alle feltene');
+    if (!displayName || !phone || !email || !password) {
+      const msg = 'Fyll inn alle feltene';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Feil', msg);
       return;
     }
     setLoading(true);
     try {
-      await signUp(email, password, displayName);
+      await signUp(email, password, displayName, phone);
       Alert.alert('Suksess', 'Konto opprettet! Sjekk e-posten din for verifisering.');
     } catch (error: any) {
       Alert.alert('Feil', error.message);
@@ -51,6 +54,13 @@ export default function SignUpScreen({ onNavigateToSignIn }: Props) {
         placeholder="Navn"
         value={displayName}
         onChangeText={setDisplayName}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Mobilnummer"
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
       />
       <TextInput
         style={styles.input}

@@ -13,9 +13,11 @@ import {
 import { Timestamp } from 'firebase/firestore';
 import { useAuthStore } from '../../stores/authStore';
 import { createTrip } from '../../services/trips';
+import { inviteUserToTrip, inviteNewUserToTrip } from '../../services/tripInvites';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import LocationPicker from '../../components/map/LocationPicker';
+import InvitePicker, { SelectedUser } from '../../components/trip/InvitePicker';
 import { COLORS } from '../../constants';
 
 interface Props {
@@ -40,6 +42,7 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [date, setDate] = useState('');
+  const [invitedUsers, setInvitedUsers] = useState<SelectedUser[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleCreate = async () => {
@@ -81,6 +84,16 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
       }
 
       const tripId = await createTrip(tripData);
+
+      // Send invites
+      for (const inv of invitedUsers) {
+        if (inv.isNew || !inv.uid) {
+          await inviteNewUserToTrip(tripId, inv.displayName, inv.email, inv.phone ?? '', user.uid);
+        } else {
+          await inviteUserToTrip(tripId, inv, user.uid);
+        }
+      }
+
       onCreated(tripId);
     } catch (error: any) {
       if (Platform.OS === 'web') {
@@ -157,6 +170,13 @@ export default function CreateTripScreen({ onCreated, onCancel }: Props) {
             </Text>
           </View>
         </TouchableOpacity>
+
+        <InvitePicker
+          currentUserId={user?.uid ?? ''}
+          selected={invitedUsers}
+          onSelectionChange={setInvitedUsers}
+          tripTitle={title}
+        />
 
         <Input
           label="Dato (YYYY-MM-DD)"

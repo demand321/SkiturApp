@@ -13,11 +13,14 @@ import {
 } from 'react-native';
 import { Timestamp, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { useAuthStore } from '../../stores/authStore';
 import { updateTrip } from '../../services/trips';
+import { inviteUserToTrip, inviteNewUserToTrip, subscribeToTripInvites } from '../../services/tripInvites';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import LocationPicker from '../../components/map/LocationPicker';
-import { Trip } from '../../types';
+import InvitePicker, { SelectedUser } from '../../components/trip/InvitePicker';
+import { Trip, TripInvite } from '../../types';
 import { COLORS } from '../../constants';
 
 interface Props {
@@ -27,8 +30,11 @@ interface Props {
 }
 
 export default function EditTripScreen({ tripId, onSaved, onCancel }: Props) {
+  const user = useAuthStore((s) => s.user);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [title, setTitle] = useState('');
+  const [existingInvites, setExistingInvites] = useState<TripInvite[]>([]);
+  const [invitedUsers, setInvitedUsers] = useState<SelectedUser[]>([]);
   const [description, setDescription] = useState('');
   const [locationName, setLocationName] = useState('');
   const [endLocationName, setEndLocationName] = useState('');
@@ -75,6 +81,24 @@ export default function EditTripScreen({ tripId, onSaved, onCancel }: Props) {
     return unsubscribe;
   }, [tripId]);
 
+  // Load existing invites
+  useEffect(() => {
+    const unsub = subscribeToTripInvites(tripId, (invites) => {
+      setExistingInvites(invites);
+      // Pre-populate selected users from existing invites (only on first load)
+      setInvitedUsers((prev) => {
+        if (prev.length > 0) return prev;
+        return invites.map((i) => ({
+          uid: i.uid,
+          displayName: i.displayName,
+          email: i.email,
+          phone: i.phone,
+        }));
+      });
+    });
+    return unsub;
+  }, [tripId]);
+
   const handleSave = async () => {
     if (!title.trim() || !locationName.trim()) {
       if (Platform.OS === 'web') {
@@ -108,6 +132,19 @@ export default function EditTripScreen({ tripId, onSaved, onCancel }: Props) {
       }
 
       await updateTrip(tripId, data);
+
+      // Send new invites (skip already invited)
+      const existingIds = new Set(existingInvites.map((i) => i.uid || i.email));
+      for (const inv of invitedUsers) {
+        const key = inv.uid || inv.email;
+        if (existingIds.has(key)) continue;
+        if (inv.isNew || !inv.uid) {
+          await inviteNewUserToTrip(tripId, inv.displayName, inv.email, inv.phone ?? '', user?.uid ?? '');
+        } else {
+          await inviteUserToTrip(tripId, inv, user?.uid ?? '');
+        }
+      }
+
       onSaved();
     } catch (error: any) {
       if (Platform.OS === 'web') {
@@ -192,6 +229,13 @@ export default function EditTripScreen({ tripId, onSaved, onCancel }: Props) {
             </Text>
           </View>
         </TouchableOpacity>
+
+        <InvitePicker
+          currentUserId={user?.uid ?? ''}
+          selected={invitedUsers}
+          onSelectionChange={setInvitedUsers}
+          tripTitle={title}
+        />
 
         <Input
           label="Dato (YYYY-MM-DD)"

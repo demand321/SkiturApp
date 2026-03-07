@@ -80,7 +80,7 @@ export default function WeatherWidget({ latitude, longitude, compact, tripDate }
     return (
       <View style={styles.compactRow}>
         <Text style={styles.compactEmoji}>{symbolToEmoji(c.symbol)}</Text>
-        <Text style={styles.compactTemp}>{Math.round(c.temperature)}\u00b0</Text>
+        <Text style={styles.compactTemp}>{`${Math.round(c.temperature)}°`}</Text>
         <Text style={styles.compactWind}>{Math.round(c.windSpeed)} m/s</Text>
       </View>
     );
@@ -99,8 +99,8 @@ export default function WeatherWidget({ latitude, longitude, compact, tripDate }
     const any = summaries.some((d) => d.s);
     if (!any) return (
       <View style={styles.container}>
-        <Text style={styles.title}>V\u00c6RVARSEL</Text>
-        <Text style={styles.noData}>Ikke tilgjengelig for denne datoen enn\u00e5</Text>
+        <Text style={styles.title}>VÆRVARSEL</Text>
+        <Text style={styles.noData}>Ikke tilgjengelig for denne datoen ennå</Text>
       </View>
     );
 
@@ -113,7 +113,7 @@ export default function WeatherWidget({ latitude, longitude, compact, tripDate }
 
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>V\u00c6RVARSEL</Text>
+        <Text style={styles.title}>VÆRVARSEL</Text>
 
         {/* Compact day rows */}
         <View style={styles.dayTable}>
@@ -123,7 +123,7 @@ export default function WeatherWidget({ latitude, longitude, compact, tripDate }
               <View key={i} style={[styles.dayRow, d.isTrip && styles.tripRow]}>
                 <Text style={[styles.dayLabel, d.isTrip && styles.tripLabel]}>{d.label}</Text>
                 <Text style={styles.dayIcon}>{symbolToEmoji(d.s.symbol)}</Text>
-                <Text style={styles.dayTemp}>{d.s.min}\u00b0/{d.s.max}\u00b0</Text>
+                <Text style={styles.dayTemp}>{`${d.s.min}°/${d.s.max}°`}</Text>
                 <Text style={styles.dayWind}>{d.s.wind} m/s</Text>
                 <Text style={styles.dayPrecip}>{d.s.precip} mm</Text>
               </View>
@@ -143,7 +143,7 @@ export default function WeatherWidget({ latitude, longitude, compact, tripDate }
                     <View key={i} style={styles.hourlyItem}>
                       <Text style={styles.hTime}>{String(h).padStart(2, '0')}:00</Text>
                       <Text style={styles.hIcon}>{symbolToEmoji(e.symbol)}</Text>
-                      <Text style={styles.hTemp}>{Math.round(e.temperature)}\u00b0C</Text>
+                      <Text style={styles.hTemp}>{`${Math.round(e.temperature)}°C`}</Text>
                       <Text style={styles.hWind}>{Math.round(e.windSpeed)} m/s</Text>
                       {e.precipitation > 0 && <Text style={styles.hPrecip}>{e.precipitation} mm</Text>}
                     </View>
@@ -161,11 +161,11 @@ export default function WeatherWidget({ latitude, longitude, compact, tripDate }
   const c = forecast[0];
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>V\u00c6R</Text>
+      <Text style={styles.title}>VÆR</Text>
       <View style={styles.currentRow}>
         <Text style={{ fontSize: 36, marginRight: 12 }}>{symbolToEmoji(c.symbol)}</Text>
         <View>
-          <Text style={styles.currentTemp}>{Math.round(c.temperature)}\u00b0C</Text>
+          <Text style={styles.currentTemp}>{`${Math.round(c.temperature)}°C`}</Text>
           <Text style={styles.currentDetail}>{symbolToNorwegian(c.symbol)}, {Math.round(c.windSpeed)} m/s</Text>
         </View>
       </View>

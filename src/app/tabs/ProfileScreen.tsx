@@ -1,5 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform, Alert } from 'react-native';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../../services/firebase';
 import { useAuthStore } from '../../stores/authStore';
 import { signOut } from '../../services/auth';
 import { useTheme } from '../../hooks/useTheme';
@@ -20,13 +22,54 @@ export default function ProfileScreen() {
   const { t } = useTranslation();
   const locale = useLocaleStore((s) => s.locale);
   const setLocale = useLocaleStore((s) => s.setLocale);
+  const [phone, setPhone] = useState('');
+  const [phoneSaved, setPhoneSaved] = useState(false);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDoc(doc(db, 'users', user.uid)).then((snap) => {
+      if (snap.exists()) {
+        setPhone(snap.data().phone ?? '');
+      }
+    });
+  }, [user?.uid]);
+
+  const savePhone = async () => {
+    if (!user?.uid) return;
+    await updateDoc(doc(db, 'users', user.uid), { phone: phone.trim() });
+    setPhoneSaved(true);
+    setTimeout(() => setPhoneSaved(false), 2000);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>{t('profile.profile')}</Text>
       <Text style={[styles.email, { color: colors.textSecondary }]}>
+        {user?.displayName || user?.email}
+      </Text>
+      <Text style={[styles.emailSub, { color: colors.textSecondary }]}>
         {user?.email}
       </Text>
+
+      <View style={[styles.phoneSection, { borderColor: colors.border }]}>
+        <Text style={[styles.phoneLabel, { color: colors.text }]}>Mobilnummer</Text>
+        <View style={styles.phoneRow}>
+          <TextInput
+            style={[styles.phoneInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="Ditt mobilnummer"
+            keyboardType="phone-pad"
+            placeholderTextColor={colors.textSecondary}
+          />
+          <TouchableOpacity
+            style={[styles.phoneSaveBtn, { backgroundColor: colors.primary }]}
+            onPress={savePhone}
+          >
+            <Text style={styles.phoneSaveText}>{phoneSaved ? 'Lagret!' : 'Lagre'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <View style={[styles.themeSection, { borderColor: colors.border }]}>
         <Text style={[styles.themeLabel, { color: colors.text }]}>
@@ -132,6 +175,43 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 16,
     marginTop: 8,
+  },
+  emailSub: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  phoneSection: {
+    marginTop: 20,
+    width: '80%',
+    paddingVertical: 12,
+  },
+  phoneLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  phoneInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 15,
+  },
+  phoneSaveBtn: {
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    justifyContent: 'center',
+  },
+  phoneSaveText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   themeSection: {
     marginTop: 32,

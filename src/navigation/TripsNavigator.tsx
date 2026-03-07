@@ -54,7 +54,13 @@ export default function TripsNavigator() {
         {({ navigation, route }) => (
           <TripDetailScreen
             tripId={(route.params as { tripId: string }).tripId}
-            onBack={() => navigation.goBack()}
+            onBack={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('TripsList');
+              }
+            }}
             onChat={(tripId) => navigation.navigate('TripChat', { tripId })}
             onPhotos={(tripId) => navigation.navigate('TripPhotos', { tripId })}
             onShopping={(tripId) => navigation.navigate('ShoppingList', { tripId })}

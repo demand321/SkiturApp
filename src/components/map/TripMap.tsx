@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { RoutePoint, Photo } from '../../types';
-import { fetchSkiTrailsBetween, SkiTrail } from '../../services/skiTrails';
+import { fetchSkiTrailsBetween, findShortestRoute, SkiTrail } from '../../services/skiTrails';
 import { COLORS } from '../../constants';
 
 interface Props {
@@ -38,21 +38,25 @@ export default function TripMap({
   participantNames,
 }: Props) {
   const [skiTrails, setSkiTrails] = useState<SkiTrail[]>([]);
+  const [shortestRoute, setShortestRoute] = useState<Array<{ latitude: number; longitude: number }>>([]);
 
   useEffect(() => {
     if (!showSkiTrails || !startLocation || !endLocation) {
       setSkiTrails([]);
+      setShortestRoute([]);
       return;
     }
     fetchSkiTrailsBetween(startLocation, endLocation)
       .then((trails) => {
-        console.log(`TripMap: fetched ${trails.length} ski trails`);
         setSkiTrails(trails);
+        const route = findShortestRoute(trails, startLocation, endLocation);
+        if (route) {
+          setShortestRoute(route.map(([lng, lat]) => ({ latitude: lat, longitude: lng })));
+        } else {
+          setShortestRoute([]);
+        }
       })
-      .catch((err) => {
-        console.warn('TripMap: failed to fetch ski trails', err);
-        setSkiTrails([]);
-      });
+      .catch(() => { setSkiTrails([]); setShortestRoute([]); });
   }, [
     showSkiTrails,
     startLocation?.latitude,
@@ -102,6 +106,16 @@ export default function TripMap({
           strokeColor={getTrailColor(trail)}
         />
       ))}
+
+      {/* Shortest route highlighted */}
+      {shortestRoute.length > 1 && (
+        <Polyline
+          coordinates={shortestRoute}
+          strokeWidth={5}
+          strokeColor="#E63946"
+          lineDashPattern={[10, 8]}
+        />
+      )}
 
       {/* GPS tracked route */}
       {routeCoords.length > 1 && (

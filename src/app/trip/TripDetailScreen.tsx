@@ -9,12 +9,14 @@ import {
   Modal,
   TextInput,
   Linking,
+  TouchableOpacity,
 } from 'react-native';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { updateTrip, deleteTrip } from '../../services/trips';
+import { updateTrip, deleteTrip, addParticipant, removeParticipant } from '../../services/trips';
+import { subscribeToTripInvites, respondToInvite } from '../../services/tripInvites';
 import { useAuthStore } from '../../stores/authStore';
-import { Trip } from '../../types';
+import { Trip, TripInvite } from '../../types';
 import { formatDate } from '../../utils/dateUtils';
 import Button from '../../components/common/Button';
 import TripMap from '../../components/map/TripMap';
@@ -34,6 +36,7 @@ interface Props {
 export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onShopping, onArchive, onEdit }: Props) {
   const user = useAuthStore((s) => s.user);
   const [trip, setTrip] = useState<Trip | null>(null);
+  const [invites, setInvites] = useState<TripInvite[]>([]);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [invitePhone, setInvitePhone] = useState('');
@@ -47,6 +50,11 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
       }
     });
     return unsubscribe;
+  }, [tripId]);
+
+  useEffect(() => {
+    const unsub = subscribeToTripInvites(tripId, setInvites);
+    return unsub;
   }, [tripId]);
 
   if (!trip) {
@@ -192,6 +200,54 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
         />
       </View>
 
+      {/* Invite list */}
+      {invites.length > 0 && (
+        <View style={styles.inviteSection}>
+          <Text style={styles.inviteSectionTitle}>Inviterte deltakere</Text>
+          {invites.map((inv) => {
+            const isMe = user?.uid === inv.uid;
+            const canRespond = isMe && inv.status === 'pending';
+            return (
+              <View key={inv.id} style={styles.inviteRow}>
+                <View style={styles.inviteInfo}>
+                  <Text style={styles.inviteName}>{inv.displayName}</Text>
+                  {inv.email ? <Text style={styles.inviteEmail}>{inv.email}</Text> : null}
+                  {inv.phone ? <Text style={styles.inviteEmail}>{inv.phone}</Text> : null}
+                </View>
+                {canRespond ? (
+                  <View style={styles.inviteActions}>
+                    <TouchableOpacity
+                      style={styles.acceptBtn}
+                      onPress={async () => {
+                        await respondToInvite(tripId, inv.id, 'accepted');
+                        await addParticipant(tripId, user!.uid);
+                      }}
+                    >
+                      <Text style={styles.acceptText}>Deltar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.declineBtn}
+                      onPress={async () => {
+                        await respondToInvite(tripId, inv.id, 'declined');
+                        await removeParticipant(tripId, user!.uid);
+                      }}
+                    >
+                      <Text style={styles.declineText}>Deltar ikke</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={[styles.statusBadge, statusBadgeStyle(inv.status)]}>
+                    <Text style={[styles.statusText, statusTextStyle(inv.status)]}>
+                      {inviteStatusLabel(inv.status)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
       {trip.location.latitude !== 0 && (
         <View style={styles.mapContainer}>
           <TripMap
@@ -213,8 +269,8 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
 
       <View style={styles.weatherSection}>
         <WeatherWidget
-          latitude={trip.location.latitude}
-          longitude={trip.location.longitude}
+          latitude={trip.endLocation?.latitude ?? trip.location.latitude}
+          longitude={trip.endLocation?.longitude ?? trip.location.longitude}
           tripDate={date}
         />
       </View>
@@ -338,6 +394,33 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function inviteStatusLabel(status: TripInvite['status']): string {
+  const labels: Record<TripInvite['status'], string> = {
+    pending: 'Venter',
+    accepted: 'Deltar',
+    declined: 'Deltar ikke',
+  };
+  return labels[status];
+}
+
+function statusBadgeStyle(status: TripInvite['status']) {
+  const colors: Record<TripInvite['status'], string> = {
+    pending: '#FFF3CD',
+    accepted: '#D4EDDA',
+    declined: '#F8D7DA',
+  };
+  return { backgroundColor: colors[status] };
+}
+
+function statusTextStyle(status: TripInvite['status']) {
+  const colors: Record<TripInvite['status'], string> = {
+    pending: '#856404',
+    accepted: '#155724',
+    declined: '#721C24',
+  };
+  return { color: colors[status] };
+}
+
 function statusLabel(status: Trip['status']): string {
   const labels: Record<Trip['status'], string> = {
     planning: 'Planlegges',
@@ -434,6 +517,78 @@ const styles = StyleSheet.create({
   },
   spacer: {
     height: 12,
+  },
+  inviteSection: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  inviteSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+    letterSpacing: 0.3,
+  },
+  inviteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  inviteInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  inviteName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  inviteEmail: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  inviteActions: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  acceptBtn: {
+    backgroundColor: '#D4EDDA',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  acceptText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#155724',
+  },
+  declineBtn: {
+    backgroundColor: '#F8D7DA',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  declineText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#721C24',
+  },
+  statusBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,

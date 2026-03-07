@@ -4,6 +4,7 @@ export interface User {
   uid: string;
   email: string;
   displayName: string;
+  phone: string;
   photoURL: string | null;
   fcmTokens: string[];
   createdAt: Timestamp;
@@ -86,4 +87,15 @@ export interface Invite {
   status: 'pending' | 'accepted' | 'expired';
   createdAt: Timestamp;
   expiresAt: Timestamp;
+}
+
+export interface TripInvite {
+  id: string;
+  uid: string;
+  displayName: string;
+  email: string;
+  phone: string;
+  invitedBy: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: Timestamp;
 }

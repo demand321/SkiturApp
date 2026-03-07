@@ -13,13 +13,14 @@ export function onAuthChange(callback: (user: FirebaseUser | null) => void) {
   return onAuthStateChanged(auth, callback);
 }
 
-export async function signUp(email: string, password: string, displayName: string) {
+export async function signUp(email: string, password: string, displayName: string, phone: string = '') {
   const { user } = await createUserWithEmailAndPassword(auth, email, password);
   await sendEmailVerification(user);
   await setDoc(doc(db, 'users', user.uid), {
     uid: user.uid,
     email,
     displayName,
+    phone,
     photoURL: null,
     fcmTokens: [],
     createdAt: serverTimestamp(),
