@@ -79,6 +79,7 @@ export interface Invite {
   id: string;
   tripId: string;
   invitedBy: string;
+  name: string | null;
   phone: string | null;
   email: string | null;
   token: string;

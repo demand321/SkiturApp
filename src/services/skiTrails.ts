@@ -39,11 +39,19 @@ export async function fetchSkiTrailsBetween(
     resultRecordCount: '500',
   });
 
-  const response = await fetch(`${SPORET_BASE}?${params}`);
-  if (!response.ok) return [];
+  const url = `${SPORET_BASE}?${params}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.warn('Sporet.no API error:', response.status, response.statusText);
+    return [];
+  }
 
   const data = await response.json();
-  if (!data.features) return [];
+  if (!data.features) {
+    console.warn('Sporet.no API: no features in response', data);
+    return [];
+  }
+  console.log(`Sporet.no: loaded ${data.features.length} trails`);
 
   return data.features.map((f: any) => ({
     id: f.properties.id ?? f.id,

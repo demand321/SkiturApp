@@ -5,6 +5,7 @@ import HomeScreen from '../app/tabs/HomeScreen';
 import TripsNavigator from './TripsNavigator';
 import MapScreen from '../app/tabs/MapScreen';
 import ProfileScreen from '../app/tabs/ProfileScreen';
+import { useTripStore } from '../stores/tripStore';
 import { COLORS } from '../constants';
 
 export type MainTabParamList = {
@@ -17,6 +18,9 @@ export type MainTabParamList = {
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainNavigator() {
+  const trips = useTripStore((s) => s.trips);
+  const hasActiveTrip = trips.some((t) => t.status === 'active');
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -52,9 +56,23 @@ export default function MainNavigator() {
         component={MapScreen}
         options={{
           title: 'Kart',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
+          tabBarIcon: ({ size }) => (
+            <Ionicons
+              name="map-outline"
+              size={size}
+              color={hasActiveTrip ? COLORS.textSecondary : COLORS.border}
+            />
           ),
+          tabBarLabelStyle: {
+            color: hasActiveTrip ? undefined : COLORS.border,
+          },
+        }}
+        listeners={{
+          tabPress: (e) => {
+            if (!hasActiveTrip) {
+              e.preventDefault();
+            }
+          },
         }}
       />
       <Tab.Screen

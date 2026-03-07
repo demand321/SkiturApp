@@ -1,23 +1,62 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import * as Location from 'expo-location';
 import { useTripStore } from '../../stores/tripStore';
 import { useAuthStore } from '../../stores/authStore';
-import { useLocationStore } from '../../stores/locationStore';
-import { useRoutePoints, useParticipantPositions } from '../../hooks/useLocation';
+import { useRoutePoints, useParticipantPositions, useParticipantNames } from '../../hooks/useLocation';
 import { startTracking, stopTracking } from '../../services/tracking';
 import TripMap from '../../components/map/TripMap';
 import TrackingControls from '../../components/map/TrackingControls';
 import { COLORS } from '../../constants';
 
 export default function MapScreen() {
+  const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
   const trips = useTripStore((s) => s.trips);
   const activeTrip = trips.find((t) => t.status === 'active');
   const [loading, setLoading] = useState(false);
+  const [locationGranted, setLocationGranted] = useState<boolean | null>(null);
 
   const tripId = activeTrip?.id ?? '';
   const routePoints = useRoutePoints(tripId);
   const participantPositions = useParticipantPositions(tripId);
+  const participantNames = useParticipantNames(activeTrip?.participants ?? []);
+
+  // Redirect to Home if no active trip (handles direct URL access)
+  useEffect(() => {
+    if (!activeTrip) {
+      navigation.navigate('Home');
+    }
+  }, [activeTrip, navigation]);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      setLocationGranted(status === 'granted');
+    })();
+  }, []);
+
+  const requestLocation = useCallback(async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    setLocationGranted(status === 'granted');
+    if (status !== 'granted') {
+      if (Platform.OS === 'web') {
+        window.alert('Du må gi tilgang til posisjon for å vise deltakere på kartet.');
+      } else {
+        Alert.alert(
+          'Posisjon kreves',
+          'Du må gi appen tilgang til posisjonen din for at andre deltakere kan se hvor du er. Gå til Innstillinger og aktiver posisjon for SkiturApp.',
+        );
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (locationGranted === false) {
+      requestLocation();
+    }
+  }, [locationGranted, requestLocation]);
 
   const handleStart = useCallback(async () => {
     if (!activeTrip || !user) {
@@ -70,12 +109,20 @@ export default function MapScreen() {
       <TripMap
         routePoints={routePoints}
         participantPositions={participantPositions}
+        participantNames={participantNames}
         initialRegion={initialRegion}
         startLocation={activeTrip.location}
         endLocation={activeTrip.endLocation}
+        showSkiTrails={true}
+        showsUserLocation={locationGranted === true}
       />
       <View style={styles.tripBanner}>
         <Text style={styles.tripName}>{activeTrip.title}</Text>
+        {participantPositions.size > 0 && (
+          <Text style={styles.participantCount}>
+            {participantPositions.size} deltaker{participantPositions.size !== 1 ? 'e' : ''} på kartet
+          </Text>
+        )}
       </View>
       <TrackingControls
         onStart={handleStart}
@@ -127,5 +174,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
     textAlign: 'center',
+  },
+  participantCount: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
   },
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { collection, query, orderBy, onSnapshot, where, limit } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, where, limit, doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useLocationStore } from '../stores/locationStore';
 import { RoutePoint } from '../types';
@@ -48,6 +48,32 @@ export function useParticipantPositions(tripId: string) {
   }, [tripId]);
 
   return positions;
+}
+
+export function useParticipantNames(userIds: string[]) {
+  const [names, setNames] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (userIds.length === 0) return;
+
+    const fetchNames = async () => {
+      const result = new Map<string, string>();
+      for (const uid of userIds) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', uid));
+          if (userDoc.exists()) {
+            result.set(uid, userDoc.data().displayName || 'Ukjent');
+          }
+        } catch {
+          result.set(uid, 'Ukjent');
+        }
+      }
+      setNames(result);
+    };
+    fetchNames();
+  }, [userIds.join(',')]);
+
+  return names;
 }
 
 export { useLocationStore };

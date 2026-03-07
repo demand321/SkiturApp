@@ -20,6 +20,7 @@ interface Props {
   endLocation?: { latitude: number; longitude: number; name?: string };
   showsUserLocation?: boolean;
   showSkiTrails?: boolean;
+  participantNames?: Map<string, string>;
 }
 
 const PARTICIPANT_COLORS = ['#E63946', '#457B9D', '#2A9D8F', '#E9C46A', '#F4A261'];
@@ -34,6 +35,7 @@ export default function TripMap({
   endLocation,
   showsUserLocation = true,
   showSkiTrails = false,
+  participantNames,
 }: Props) {
   const [skiTrails, setSkiTrails] = useState<SkiTrail[]>([]);
 
@@ -43,8 +45,14 @@ export default function TripMap({
       return;
     }
     fetchSkiTrailsBetween(startLocation, endLocation)
-      .then(setSkiTrails)
-      .catch(() => setSkiTrails([]));
+      .then((trails) => {
+        console.log(`TripMap: fetched ${trails.length} ski trails`);
+        setSkiTrails(trails);
+      })
+      .catch((err) => {
+        console.warn('TripMap: failed to fetch ski trails', err);
+        setSkiTrails([]);
+      });
   }, [
     showSkiTrails,
     startLocation?.latitude,
@@ -136,7 +144,7 @@ export default function TripMap({
           key={userId}
           coordinate={pos}
           pinColor={PARTICIPANT_COLORS[idx % PARTICIPANT_COLORS.length]}
-          title={`Deltaker ${idx + 1}`}
+          title={participantNames?.get(userId) ?? `Deltaker ${idx + 1}`}
         />
       ))}
 

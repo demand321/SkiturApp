@@ -5,10 +5,12 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  Share,
   Platform,
+  Modal,
+  TextInput,
+  Linking,
 } from 'react-native';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { updateTrip, deleteTrip } from '../../services/trips';
 import { useAuthStore } from '../../stores/authStore';
@@ -32,6 +34,11 @@ interface Props {
 export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onShopping, onArchive, onEdit }: Props) {
   const user = useAuthStore((s) => s.user);
   const [trip, setTrip] = useState<Trip | null>(null);
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteSending, setInviteSending] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'trips', tripId), (snapshot) => {
@@ -106,20 +113,57 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
     }
   };
 
-  const handleShareInvite = async () => {
-    const inviteUrl = `https://skiturapp.pages.dev`;
-    const message = `Bli med på skitur: ${trip.title}!\nÅpne appen her: ${inviteUrl}`;
-    try {
-      if (Platform.OS === 'web' && navigator.share) {
-        await navigator.share({ title: trip.title, text: message, url: inviteUrl });
-      } else if (Platform.OS === 'web') {
-        await navigator.clipboard.writeText(message);
-        window.alert('Invitasjonslenke kopiert!');
+  const handleInviteSubmit = async () => {
+    const phone = invitePhone.trim();
+    if (!phone) {
+      if (Platform.OS === 'web') {
+        window.alert('Mobilnummer er påkrevd');
       } else {
-        await Share.share({ message });
+        Alert.alert('Mangler mobilnummer', 'Du må oppgi et mobilnummer for å sende invitasjon.');
       }
-    } catch {
-      // User cancelled share
+      return;
+    }
+
+    setInviteSending(true);
+    try {
+      const token = Math.random().toString(36).substring(2, 10);
+      await addDoc(collection(db, 'invites'), {
+        tripId,
+        invitedBy: user?.uid,
+        name: inviteName.trim() || null,
+        phone,
+        email: inviteEmail.trim() || null,
+        token,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+
+      const inviteUrl = `https://skiturapp.pages.dev`;
+      const smsBody = `Hei${inviteName.trim() ? ` ${inviteName.trim()}` : ''}! Du er invitert på skitur: ${trip.title} (${formatDate(date)}). Last ned appen og bli med: ${inviteUrl}`;
+
+      if (Platform.OS === 'web') {
+        window.open(`sms:${phone}?body=${encodeURIComponent(smsBody)}`);
+      } else {
+        const smsUrl = Platform.OS === 'ios'
+          ? `sms:${phone}&body=${encodeURIComponent(smsBody)}`
+          : `sms:${phone}?body=${encodeURIComponent(smsBody)}`;
+        await Linking.openURL(smsUrl);
+      }
+
+      setInviteModalVisible(false);
+      setInviteName('');
+      setInvitePhone('');
+      setInviteEmail('');
+    } catch (error) {
+      const msg = 'Kunne ikke opprette invitasjon. Prøv igjen.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Feil', msg);
+      }
+    } finally {
+      setInviteSending(false);
     }
   };
 
@@ -188,7 +232,7 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
             <View style={styles.spacer} />
           </>
         )}
-        <Button title="Inviter deltaker" onPress={handleShareInvite} variant="secondary" />
+        <Button title="Inviter deltaker" onPress={() => setInviteModalVisible(true)} variant="secondary" />
 
         {isCreator && trip.status === 'planning' && (
           <>
@@ -216,6 +260,71 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
         <View style={styles.spacer} />
         <Button title="Tilbake" onPress={onBack} variant="secondary" />
       </View>
+      <Modal
+        visible={inviteModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setInviteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Inviter deltaker</Text>
+
+            <Text style={styles.inputLabel}>Navn</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Navn (valgfritt)"
+              placeholderTextColor={COLORS.textSecondary}
+              value={inviteName}
+              onChangeText={setInviteName}
+            />
+
+            <Text style={styles.inputLabel}>Mobilnummer *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="+47 123 45 678"
+              placeholderTextColor={COLORS.textSecondary}
+              value={invitePhone}
+              onChangeText={setInvitePhone}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+            />
+
+            <Text style={styles.inputLabel}>E-post</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="E-post (valgfritt)"
+              placeholderTextColor={COLORS.textSecondary}
+              value={inviteEmail}
+              onChangeText={setInviteEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <View style={styles.modalButtons}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Button
+                  title="Avbryt"
+                  onPress={() => {
+                    setInviteModalVisible(false);
+                    setInviteName('');
+                    setInvitePhone('');
+                    setInviteEmail('');
+                  }}
+                  variant="secondary"
+                />
+              </View>
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Button
+                  title={inviteSending ? 'Sender...' : 'Send SMS'}
+                  onPress={handleInviteSubmit}
+                  disabled={inviteSending}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -325,5 +434,42 @@ const styles = StyleSheet.create({
   },
   spacer: {
     height: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: COLORS.background,
+    borderRadius: 16,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  modalInput: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 16,
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    marginTop: 8,
   },
 });
