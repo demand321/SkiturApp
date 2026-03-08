@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import Constants from 'expo-constants';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../services/firebase';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../stores/authStore';
 import { useTrips } from '../../hooks/useTrips';
@@ -11,10 +13,21 @@ import { COLORS } from '../../constants';
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const { active, planning } = useTrips();
   const navigation = useNavigation<any>();
 
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDoc(doc(db, 'users', user.uid)).then((snap) => {
+      if (snap.exists()) {
+        setDisplayName(snap.data().displayName || null);
+      }
+    }).catch(() => {});
+  }, [user?.uid]);
+
   const upcoming = [...active, ...planning].slice(0, 5);
+  const greeting = displayName || user?.displayName || 'turvenn';
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -28,7 +41,7 @@ export default function HomeScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.greeting}>
-              Hei, {user?.displayName || user?.email?.split('@')[0] || 'turvenn'}!
+              Hei, {greeting}!
             </Text>
             {active.length > 0 ? (
               <>
