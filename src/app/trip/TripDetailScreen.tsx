@@ -11,13 +11,17 @@ import {
   Linking,
   TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { doc, onSnapshot, collection, addDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { updateTrip, deleteTrip, addParticipant, removeParticipant } from '../../services/trips';
 import { subscribeToTripInvites, respondToInvite, reinviteAll } from '../../services/tripInvites';
 import { useAuthStore } from '../../stores/authStore';
-import { Trip, TripInvite } from '../../types';
+import { useTheme } from '../../hooks/useTheme';
+import { Trip, TripInvite, PointOfInterest, POIIcon } from '../../types';
 import { formatDate } from '../../utils/dateUtils';
+import { subscribeToPOIs, addPOI, deletePOI } from '../../services/poi';
+import { getAllPOITypes } from '../../components/map/POIMarker';
 import Button from '../../components/common/Button';
 import UserAvatar from '../../components/common/UserAvatar';
 import TripMap from '../../components/map/TripMap';
@@ -71,6 +75,7 @@ interface Props {
 
 export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onShopping, onArchive, onEdit, onParticipants }: Props) {
   const user = useAuthStore((s) => s.user);
+  const { colors } = useTheme();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [invites, setInvites] = useState<TripInvite[]>([]);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
@@ -83,6 +88,11 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
   const [declineReason, setDeclineReason] = useState('');
   const [declining, setDeclining] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [pois, setPois] = useState<PointOfInterest[]>([]);
+  const [poiModalVisible, setPoiModalVisible] = useState(false);
+  const [poiName, setPoiName] = useState('');
+  const [poiIcon, setPoiIcon] = useState<POIIcon>('martini');
+  const [poiAdding, setPoiAdding] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -92,6 +102,11 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
       }
     }).catch(() => {});
   }, [user?.uid]);
+
+  useEffect(() => {
+    const unsub = subscribeToPOIs(tripId, setPois);
+    return unsub;
+  }, [tripId]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'trips', tripId), (snapshot) => {
@@ -118,6 +133,7 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
   }
 
   const isCreator = user?.uid === trip.createdBy;
+  const canManage = isCreator || isAdmin;
   const date = trip.startDate?.toDate?.() ?? new Date();
 
   const handleStartTrip = async () => {
@@ -331,7 +347,7 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
           <Text style={styles.inviteSectionTitle}>
             Deltakere ({trip.participants.length})
           </Text>
-          {isCreator && invites.some((inv) => inv.status !== 'pending') && (
+          {canManage && invites.some((inv) => inv.status !== 'pending') && (
             <TouchableOpacity
               style={styles.reinviteBtn}
               onPress={handleReinviteAll}
@@ -432,10 +448,23 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
           <TripMap
             routePoints={[]}
             participantPositions={new Map()}
+            pois={pois}
             startLocation={trip.location}
             endLocation={trip.endLocation}
             showsUserLocation={false}
             showSkiTrails={trip.status === 'planning' || trip.status === 'active'}
+            onPOIPress={(poi) => {
+              if (!canManage) return;
+              const doDelete = () => deletePOI(tripId, poi.id);
+              if (Platform.OS === 'web') {
+                if (window.confirm(`Fjerne "${poi.name}"?`)) doDelete();
+              } else {
+                Alert.alert('Fjern POI', `Fjerne "${poi.name}"?`, [
+                  { text: 'Avbryt', style: 'cancel' },
+                  { text: 'Fjern', style: 'destructive', onPress: doDelete },
+                ]);
+              }
+            }}
             initialRegion={{
               latitude: trip.location.latitude,
               longitude: trip.location.longitude,
@@ -443,6 +472,58 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
               longitudeDelta: 0.05,
             }}
           />
+        </View>
+      )}
+
+      {/* POI list and add button */}
+      {(pois.length > 0 || canManage) && (
+        <View style={[styles.poiSection, { backgroundColor: colors.surface }]}>
+          <View style={styles.poiHeader}>
+            <Text style={[styles.poiTitle, { color: colors.textSecondary }]}>
+              Interessepunkter ({pois.length})
+            </Text>
+            {canManage && (
+              <TouchableOpacity
+                style={[styles.poiAddBtn, { backgroundColor: colors.primary }]}
+                onPress={() => setPoiModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={16} color="#fff" />
+                <Text style={styles.poiAddBtnText}>Legg til</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {pois.map((poi) => {
+            const poiTypes = getAllPOITypes();
+            const config = poiTypes.find((t) => t.icon === poi.icon);
+            return (
+              <View key={poi.id} style={[styles.poiRow, { borderBottomColor: colors.border }]}>
+                <Text style={styles.poiEmoji}>{config?.emoji || '📍'}</Text>
+                <View style={styles.poiInfo}>
+                  <Text style={[styles.poiName, { color: colors.text }]}>{poi.name}</Text>
+                  <Text style={[styles.poiType, { color: colors.textSecondary }]}>{config?.label}</Text>
+                </View>
+                {canManage && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const doDelete = () => deletePOI(tripId, poi.id);
+                      if (Platform.OS === 'web') {
+                        if (window.confirm(`Fjerne "${poi.name}"?`)) doDelete();
+                      } else {
+                        Alert.alert('Fjern', `Fjerne "${poi.name}"?`, [
+                          { text: 'Avbryt', style: 'cancel' },
+                          { text: 'Fjern', style: 'destructive', onPress: doDelete },
+                        ]);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -454,19 +535,29 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
         />
       </View>
 
-      <View style={styles.actions}>
-        <Button title="Chat" onPress={() => onChat(tripId)} />
-        <View style={styles.spacer} />
-        <Button title="Bilder" onPress={() => onPhotos(tripId)} />
-        <View style={styles.spacer} />
-        <Button title="Handleliste" onPress={() => onShopping(tripId)} />
-        <View style={styles.spacer} />
+      {/* Quick actions in a grid */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity style={[styles.quickBtn, { backgroundColor: colors.surface }]} onPress={() => onChat(tripId)} activeOpacity={0.7}>
+          <Ionicons name="chatbubble-outline" size={22} color={colors.primary} />
+          <Text style={[styles.quickBtnText, { color: colors.text }]}>Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.quickBtn, { backgroundColor: colors.surface }]} onPress={() => onPhotos(tripId)} activeOpacity={0.7}>
+          <Ionicons name="camera-outline" size={22} color={colors.primary} />
+          <Text style={[styles.quickBtnText, { color: colors.text }]}>Bilder</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.quickBtn, { backgroundColor: colors.surface }]} onPress={() => onShopping(tripId)} activeOpacity={0.7}>
+          <Ionicons name="cart-outline" size={22} color={colors.primary} />
+          <Text style={[styles.quickBtnText, { color: colors.text }]}>Handleliste</Text>
+        </TouchableOpacity>
         {trip.status === 'completed' && (
-          <>
-            <Button title="Se turarkiv" onPress={() => onArchive(tripId)} />
-            <View style={styles.spacer} />
-          </>
+          <TouchableOpacity style={[styles.quickBtn, { backgroundColor: colors.surface }]} onPress={() => onArchive(tripId)} activeOpacity={0.7}>
+            <Ionicons name="archive-outline" size={22} color={colors.primary} />
+            <Text style={[styles.quickBtnText, { color: colors.text }]}>Arkiv</Text>
+          </TouchableOpacity>
         )}
+      </View>
+
+      <View style={styles.actions}>
         <Button title="Inviter deltaker" onPress={() => setInviteModalVisible(true)} variant="secondary" />
         {onParticipants && (
           <>
@@ -475,21 +566,21 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
           </>
         )}
 
-        {isCreator && trip.status === 'planning' && (
+        {canManage && trip.status === 'planning' && (
           <>
             <View style={styles.spacer} />
             <Button title="Start tur" onPress={handleStartTrip} />
           </>
         )}
 
-        {isCreator && trip.status === 'active' && (
+        {canManage && trip.status === 'active' && (
           <>
             <View style={styles.spacer} />
             <Button title="Avslutt tur" onPress={handleCompleteTrip} variant="danger" />
           </>
         )}
 
-        {isCreator && (
+        {canManage && (
           <>
             <View style={styles.spacer} />
             <Button title="Rediger tur" onPress={() => onEdit(tripId)} variant="secondary" />
@@ -497,9 +588,6 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
             <Button title="Slett tur" onPress={handleDeleteTrip} variant="danger" />
           </>
         )}
-
-        <View style={styles.spacer} />
-        <Button title="Tilbake" onPress={onBack} variant="secondary" />
       </View>
       <Modal
         visible={inviteModalVisible}
@@ -601,6 +689,82 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
                   onPress={handleDecline}
                   disabled={declining}
                   variant="danger"
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* Add POI modal */}
+      <Modal
+        visible={poiModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPoiModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Nytt interessepunkt</Text>
+            <Text style={styles.inputLabel}>Navn *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="F.eks. Afterski-stedet"
+              placeholderTextColor={COLORS.textSecondary}
+              value={poiName}
+              onChangeText={setPoiName}
+            />
+            <Text style={styles.inputLabel}>Type</Text>
+            <View style={styles.poiIconGrid}>
+              {getAllPOITypes().map((type) => (
+                <TouchableOpacity
+                  key={type.icon}
+                  style={[
+                    styles.poiIconBtn,
+                    poiIcon === type.icon && { backgroundColor: type.color + '20', borderColor: type.color },
+                  ]}
+                  onPress={() => setPoiIcon(type.icon)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.poiIconEmoji}>{type.emoji}</Text>
+                  <Text style={[styles.poiIconLabel, poiIcon === type.icon && { color: type.color, fontWeight: '700' }]}>
+                    {type.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>
+              Plassering: midtpunkt av kartet brukes
+            </Text>
+            <View style={styles.modalButtons}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Button
+                  title="Avbryt"
+                  onPress={() => { setPoiModalVisible(false); setPoiName(''); }}
+                  variant="secondary"
+                />
+              </View>
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Button
+                  title={poiAdding ? 'Legger til...' : 'Legg til'}
+                  onPress={async () => {
+                    if (!poiName.trim() || !user?.uid || !trip) return;
+                    setPoiAdding(true);
+                    try {
+                      // Use trip start location as default, user can move on map later
+                      const lat = trip.endLocation?.latitude || trip.location.latitude;
+                      const lng = trip.endLocation?.longitude || trip.location.longitude;
+                      await addPOI(tripId, poiName.trim(), poiIcon, lat, lng, user.uid);
+                      setPoiModalVisible(false);
+                      setPoiName('');
+                    } catch {
+                      const msg = 'Kunne ikke legge til punkt.';
+                      if (Platform.OS === 'web') window.alert(msg);
+                      else Alert.alert('Feil', msg);
+                    } finally {
+                      setPoiAdding(false);
+                    }
+                  }}
+                  disabled={poiAdding || !poiName.trim()}
                 />
               </View>
             </View>
@@ -737,6 +901,37 @@ const styles = StyleSheet.create({
   },
   weatherSection: {
     marginBottom: 20,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  quickBtn: {
+    flex: 1,
+    minWidth: 80,
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 6,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+      },
+      default: {
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 2,
+      },
+    }),
+  },
+  quickBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   actions: {
     marginTop: 4,
@@ -890,5 +1085,84 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     marginTop: 8,
+  },
+  // POI styles
+  poiSection: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    ...Platform.select({
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
+      default: { elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2 },
+    }),
+  },
+  poiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  poiTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  poiAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  poiAddBtnText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  poiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    gap: 10,
+  },
+  poiEmoji: {
+    fontSize: 22,
+  },
+  poiInfo: {
+    flex: 1,
+  },
+  poiName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  poiType: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  poiIconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  poiIconBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minWidth: 72,
+  },
+  poiIconEmoji: {
+    fontSize: 22,
+    marginBottom: 4,
+  },
+  poiIconLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
   },
 });
