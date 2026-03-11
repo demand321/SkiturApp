@@ -10,6 +10,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { signOut } from '../../services/auth';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeStore, ThemePreference } from '../../stores/themeStore';
+import { PALETTES, PaletteId } from '../../constants';
 import { useTranslation, useLocaleStore } from '../../i18n';
 import UserAvatar from '../../components/common/UserAvatar';
 
@@ -22,11 +23,23 @@ const THEME_OPTIONS: { label: string; value: ThemePreference; icon: keyof typeof
 export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const { colors } = useTheme();
-  const preference = useThemeStore((s) => s.preference);
-  const setPreference = useThemeStore((s) => s.setPreference);
+  const themeStore = useThemeStore();
+  const { preference, palette: paletteId } = themeStore;
   const { t } = useTranslation();
   const locale = useLocaleStore((s) => s.locale);
   const setLocale = useLocaleStore((s) => s.setLocale);
+
+  // Load palette from Firestore on mount
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDoc(doc(db, 'users', user.uid)).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.palette) useThemeStore.getState().setPalette(data.palette);
+        if (data.themePreference) useThemeStore.getState().setPreference(data.themePreference);
+      }
+    });
+  }, [user?.uid]);
 
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
@@ -314,7 +327,10 @@ export default function ProfileScreen() {
                     borderColor: isActive ? colors.primary : colors.border,
                   },
                 ]}
-                onPress={() => setPreference(option.value)}
+                onPress={() => {
+                  useThemeStore.getState().setPreference(option.value);
+                  if (user?.uid) updateDoc(doc(db, 'users', user.uid), { themePreference: option.value }).catch(() => {});
+                }}
                 activeOpacity={0.7}
               >
                 <Ionicons name={option.icon} size={16} color={isActive ? colors.primary : colors.textSecondary} />
@@ -327,6 +343,52 @@ export default function ProfileScreen() {
                 >
                   {option.label}
                 </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={[styles.settingLabel, { color: colors.text, marginTop: 16 }]}>
+          Fargepalett
+        </Text>
+        <View style={styles.paletteRow}>
+          {(Object.keys(PALETTES) as PaletteId[]).map((id) => {
+            const p = PALETTES[id];
+            const isActive = paletteId === id;
+            const icon: keyof typeof Ionicons.glyphMap =
+              id === 'nordic' ? 'snow-outline' :
+              id === 'alpine' ? 'bonfire-outline' : 'flash-outline';
+            return (
+              <TouchableOpacity
+                key={id}
+                style={[
+                  styles.paletteBtn,
+                  {
+                    borderColor: isActive ? p.preview[0] : colors.border,
+                    backgroundColor: isActive ? p.preview[0] + '18' : colors.background,
+                  },
+                ]}
+                onPress={() => {
+                  useThemeStore.getState().setPalette(id);
+                  if (user?.uid) updateDoc(doc(db, 'users', user.uid), { palette: id }).catch(() => {});
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.paletteIconWrap, { backgroundColor: p.preview[0] + '20' }]}>
+                  <Ionicons name={icon} size={24} color={p.preview[0]} />
+                </View>
+                <Text
+                  style={[
+                    styles.paletteLabel,
+                    { color: isActive ? p.preview[0] : colors.text },
+                    isActive && { fontWeight: '700' },
+                  ]}
+                >
+                  {p.label}
+                </Text>
+                {isActive && (
+                  <Ionicons name="checkmark-circle" size={18} color={p.preview[0]} style={{ marginTop: 2 }} />
+                )}
               </TouchableOpacity>
             );
           })}
@@ -536,6 +598,32 @@ const styles = StyleSheet.create({
   },
   optionTextActive: {
     fontWeight: '600',
+  },
+  paletteRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  paletteBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderWidth: 2,
+    gap: 6,
+    minWidth: 95,
+  },
+  paletteIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paletteLabel: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   signOutBtn: {
     flexDirection: 'row',

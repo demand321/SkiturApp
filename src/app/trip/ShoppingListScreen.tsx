@@ -11,19 +11,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../services/firebase';
 import { useAuthStore } from '../../stores/authStore';
 import { useTheme } from '../../hooks/useTheme';
 import { useShopping } from '../../hooks/useShopping';
-import { fetchUser } from '../../services/users';
+import { isAdminEmail } from '../../services/auth';
 import {
   addShoppingItem,
   toggleShoppingItem,
   updateShoppingItemText,
   removeShoppingItem,
 } from '../../services/shopping';
-import { ShoppingItem, Trip } from '../../types';
+import { ShoppingItem } from '../../types';
 
 interface Props {
   tripId: string;
@@ -34,24 +32,7 @@ export default function ShoppingListScreen({ tripId }: Props) {
   const { colors } = useTheme();
   const { items, loading } = useShopping(tripId);
   const [newItem, setNewItem] = useState('');
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'trips', tripId), (snap) => {
-      if (snap.exists()) setTrip({ id: snap.id, ...snap.data() } as Trip);
-    });
-    return unsub;
-  }, [tripId]);
-
-  useEffect(() => {
-    if (!user?.uid) return;
-    fetchUser(user.uid).then((u) => {
-      if (u) setIsAdmin(u.role === 'admin');
-    }).catch(() => {});
-  }, [user?.uid]);
-
-  const canEdit = isAdmin || (trip && user?.uid === trip.createdBy);
+  const canEdit = isAdminEmail(user?.email);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
 

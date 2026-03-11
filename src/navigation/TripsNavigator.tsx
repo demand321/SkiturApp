@@ -30,17 +30,13 @@ const Stack = createNativeStackNavigator<TripsStackParamList>();
 function BackButton({ onPress, colors }: { onPress: () => void; colors: any }) {
   return (
     <TouchableOpacity style={backStyles.btn} onPress={onPress} activeOpacity={0.7}>
-      <Ionicons name="arrow-back" size={22} color={colors.primary} />
-      {Platform.OS === 'web' && (
-        <Text style={[backStyles.text, { color: colors.primary }]}>Tilbake</Text>
-      )}
+      <Ionicons name="chevron-back" size={26} color={colors.primary} />
     </TouchableOpacity>
   );
 }
 
 const backStyles = StyleSheet.create({
-  btn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8, paddingVertical: 4, paddingRight: 8 },
-  text: { fontSize: 15, fontWeight: '600' },
+  btn: { marginLeft: 12, paddingVertical: 6, paddingRight: 14 },
 });
 
 export default function TripsNavigator() {

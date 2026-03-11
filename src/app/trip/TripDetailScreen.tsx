@@ -21,6 +21,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { Trip, TripInvite, PointOfInterest, POIIcon } from '../../types';
 import { formatDate } from '../../utils/dateUtils';
 import { subscribeToPOIs, addPOI, deletePOI } from '../../services/poi';
+import { isAdminEmail } from '../../services/auth';
 import { getAllPOITypes } from '../../components/map/POIMarker';
 import Button from '../../components/common/Button';
 import UserAvatar from '../../components/common/UserAvatar';
@@ -87,21 +88,13 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
   const [declineModalVisible, setDeclineModalVisible] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
   const [declining, setDeclining] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminMenuVisible, setAdminMenuVisible] = useState(false);
+  const isAdmin = isAdminEmail(user?.email);
   const [pois, setPois] = useState<PointOfInterest[]>([]);
   const [poiModalVisible, setPoiModalVisible] = useState(false);
   const [poiName, setPoiName] = useState('');
   const [poiIcon, setPoiIcon] = useState<POIIcon>('martini');
   const [poiAdding, setPoiAdding] = useState(false);
-
-  useEffect(() => {
-    if (!user?.uid) return;
-    getDoc(doc(db, 'users', user.uid)).then((snap) => {
-      if (snap.exists()) {
-        setIsAdmin(snap.data().role === 'admin');
-      }
-    }).catch(() => {});
-  }, [user?.uid]);
 
   useEffect(() => {
     const unsub = subscribeToPOIs(tripId, setPois);
@@ -557,38 +550,66 @@ export default function TripDetailScreen({ tripId, onBack, onChat, onPhotos, onS
         )}
       </View>
 
-      <View style={styles.actions}>
-        <Button title="Inviter deltaker" onPress={() => setInviteModalVisible(true)} variant="secondary" />
-        {onParticipants && (
-          <>
-            <View style={styles.spacer} />
-            <Button title="Alle brukere" onPress={onParticipants} variant="secondary" />
-          </>
-        )}
+      {/* Admin menu */}
+      {canManage && !adminMenuVisible && (
+        <TouchableOpacity
+          style={[styles.hamburgerBtn, { backgroundColor: colors.surface }]}
+          onPress={() => setAdminMenuVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="menu" size={24} color={colors.primary} />
+          <Text style={[styles.hamburgerText, { color: colors.primary }]}>Administrer</Text>
+        </TouchableOpacity>
+      )}
 
-        {canManage && trip.status === 'planning' && (
-          <>
-            <View style={styles.spacer} />
-            <Button title="Start tur" onPress={handleStartTrip} />
-          </>
-        )}
+      {canManage && adminMenuVisible && (
+        <View style={[styles.adminMenu, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.adminMenuHeader}>
+            <Text style={[styles.adminMenuTitle, { color: colors.textSecondary }]}>Administrer</Text>
+            <TouchableOpacity onPress={() => setAdminMenuVisible(false)} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
-        {canManage && trip.status === 'active' && (
-          <>
-            <View style={styles.spacer} />
-            <Button title="Avslutt tur" onPress={handleCompleteTrip} variant="danger" />
-          </>
-        )}
+          <TouchableOpacity style={styles.menuItem} onPress={() => { setAdminMenuVisible(false); setInviteModalVisible(true); }} activeOpacity={0.7}>
+            <Ionicons name="person-add-outline" size={20} color={colors.primary} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>Inviter deltaker</Text>
+          </TouchableOpacity>
 
-        {canManage && (
-          <>
-            <View style={styles.spacer} />
-            <Button title="Rediger tur" onPress={() => onEdit(tripId)} variant="secondary" />
-            <View style={styles.spacer} />
-            <Button title="Slett tur" onPress={handleDeleteTrip} variant="danger" />
-          </>
-        )}
-      </View>
+          {onParticipants && (
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setAdminMenuVisible(false); onParticipants(); }} activeOpacity={0.7}>
+              <Ionicons name="people-outline" size={20} color={colors.primary} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Alle brukere</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => { setAdminMenuVisible(false); onEdit(tripId); }} activeOpacity={0.7}>
+            <Ionicons name="create-outline" size={20} color={colors.primary} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>Rediger tur</Text>
+          </TouchableOpacity>
+
+          {trip.status === 'planning' && (
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setAdminMenuVisible(false); handleStartTrip(); }} activeOpacity={0.7}>
+              <Ionicons name="play-outline" size={20} color={colors.success} />
+              <Text style={[styles.menuItemText, { color: colors.success }]}>Start tur</Text>
+            </TouchableOpacity>
+          )}
+
+          {trip.status === 'active' && (
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setAdminMenuVisible(false); handleCompleteTrip(); }} activeOpacity={0.7}>
+              <Ionicons name="checkmark-circle-outline" size={20} color={colors.warning} />
+              <Text style={[styles.menuItemText, { color: colors.warning }]}>Avslutt tur</Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => { setAdminMenuVisible(false); handleDeleteTrip(); }} activeOpacity={0.7}>
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
+            <Text style={[styles.menuItemText, { color: colors.error }]}>Slett tur</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <Modal
         visible={inviteModalVisible}
         transparent
@@ -933,8 +954,61 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  actions: {
-    marginTop: 4,
+  hamburgerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 20,
+    ...Platform.select({
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' },
+      default: { elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2 },
+    }),
+  },
+  hamburgerText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  adminMenu: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 8,
+    marginBottom: 20,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
+      default: { elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6 },
+    }),
+  },
+  adminMenuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  adminMenuTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  menuDivider: {
+    height: 1,
+    marginVertical: 4,
   },
   spacer: {
     height: 12,
